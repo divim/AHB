@@ -5,7 +5,7 @@ $AzureVM = @()
 $AzureSQLVM = @()
 $AzureSQLDB = @()
 $AzureSQLMI = @()
-$AzureSQLDB_License = @('Hyperscale','GeneralPurpose','BusinessCritical')
+$AzureSQLDB_Edition = @('Hyperscale','GeneralPurpose','BusinessCritical')
 
 #Iterate through all subscriptions
 foreach ($azSub in $azSubs)
@@ -76,32 +76,31 @@ foreach ($azSub in $azSubs)
     foreach ($AzureSQLServer in $AzureSQLServers)
     {
         #Iterate through all SQL Server DBs that are not masters and have vCore-based purchasing model
-        $AzureSQLServerDatabases = Get-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName | Where-Object DatabaseName -NE "master" | ?{$_.Edition -match $AzureSQLDB_License}
+        $AzureSQLServerDatabases = Get-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName | Where-Object DatabaseName -NE "master" | ?{$_.Edition -match $AzureSQLDB_Edition}
+        foreach ($AzureSQLDatabase in $AzureSQLServerDatabases)
         {
-            foreach ($AzureSQLDB in $AzureSQLServerDatabases)
+            if ($AzureSQLDatabase.LicenseType -cne "BasePrice")
             {
-                if ($AzureSQLDB.LicenseType -ne "BasePrice")
-                {
-                    $string = "[UPDATE] Updating Azure SQL Database with AHUB: "
-                    $string + $AzureSQLDB.DatabaseName + $dot
-                
-                    Set-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName -DatabaseName $AzureSQLDB.DatabaseName 
+                $string = "[UPDATE] Updating Azure SQL Database with AHUB: "
+                $string + $AzureSQLDatabase.DatabaseName + $dot
+            
+                Set-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName -DatabaseName $AzureSQLDatabase.DatabaseName -LicenseType "BasePrice"
 
-                    # Adding details for CSV file
-                    $propsSQL_DB = @{
-                        SubName = $azSub.Name
-                        ServerName = $AzureSQLServer.Name
-                        ResourceGroupName = $AzureSQLServer.ResourceGroupName
-                        DatabaseName = $AzureSQLDB.DatabaseName
-                    }
-                    $SQLDBObject = New-Object -TypeName PSObject -Property $propsSQL_DB
-                    $AzureSQLDB += $SQLDBObject
+                # Adding details for CSV file
+                $propsSQL_DB = @{
+                    SubName = $azSub.Name
+                    ServerName = $AzureSQLServer.Name
+                    ResourceGroupName = $AzureSQLServer.ResourceGroupName
+                    DatabaseName = $AzureSQLDatabase.DatabaseName
                 }
+                $SQLDBObject = New-Object -TypeName PSObject -Property $propsSQL_DB
+                $AzureSQLDB += $SQLDBObject
             }
-        } 
+        }
     }
 }
-$AzureVM | Export-Csv -Path "$($home)\AzVM-Windows_Server-Licensing-Change.csv" -NoTypeInformation -force
-$AzureSQLVM | Export-Csv -Path "$($home)\AzVM-SQL_Std_Ent-Licensing-Change.csv" -NoTypeInformation -force
+$AzureVM | Export-Csv -Path "$($home)\AzVM-WindowsServer-Licensing-Change.csv" -NoTypeInformation -force
+$AzureSQLVM | Export-Csv -Path "$($home)\AzVM-SQLVM_Std_Ent-Licensing-Change.csv" -NoTypeInformation -force
+$AzureSQLVM | Export-Csv -Path "$($home)\AzSQL-DB-Licensing-Change.csv" -NoTypeInformation -force
 echo "Check AzVM-Windows_Server-Licensing-Change.csv for results on Windows Server license type changes......"
 echo "Check AzVM-SQL_Std_Ent-Licensing-Change.csv for results on SQL Standard/Enterprise license type changes......"
