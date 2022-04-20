@@ -3,6 +3,10 @@ $azSubs = Get-AzSubscription
 $dot = "....................."
 $AzureVM = @()
 $AzureSQLVM = @()
+$AzureSQLDB = @()
+$AzureSQLMI = @()
+$AzureSQLDB_License = @('Hyperscale','GeneralPurpose','BusinessCritical')
+
 #Iterate through all subscriptions
 foreach ($azSub in $azSubs)
 {
@@ -10,7 +14,7 @@ foreach ($azSub in $azSubs)
     $string + $azSub.Name + $dot
     Set-AzContext -Subscription $azSub | Out-Null
 
-    #Iterate through all VMs
+    #Iterate through all VMs----------------------------------------------------
     foreach ($azVM in Get-AzVM)
     {
         #If AHUB is not applied for Windows Server
@@ -37,7 +41,7 @@ foreach ($azSub in $azSubs)
             }
         }
     }
-    #Iterate through all SQL Server VMs
+    #Iterate through all SQL Server VMs----------------------------------------------------
     foreach ($azSqlVM in Get-AzSqlVM)
     {
         #Only Enterprise or Standard SKUs are supported for AHUB
@@ -67,14 +71,33 @@ foreach ($azSub in $azSubs)
         }
     }
 
-    #Iterate through all SQL Servers
+    #Iterate through all SQL Servers----------------------------------------------------
     $AzureSQLServers = Get-AzResource  | Where-Object ResourceType -EQ Microsoft.SQL/servers
     foreach ($AzureSQLServer in $AzureSQLServers)
     {
         #Iterate through all SQL Server DBs that are not masters and have vCore-based purchasing model
-        $AzureSQLServerDataBases = Get-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName | Where-Object DatabaseName -NE "master" | ?{$_.Edition -match $AzureSQLDB_License}
+        $AzureSQLServerDatabases = Get-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName | Where-Object DatabaseName -NE "master" | ?{$_.Edition -match $AzureSQLDB_License}
         {
-            
+            foreach ($AzureSQLDB in $AzureSQLServerDatabases)
+            {
+                if ($AzureSQLDB.LicenseType -ne "BasePrice")
+                {
+                    $string = "[UPDATE] Updating Azure SQL Database with AHUB: "
+                    $string + $AzureSQLDB.DatabaseName + $dot
+                
+                    Set-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName -DatabaseName $AzureSQLDB.DatabaseName 
+
+                    # Adding details for CSV file
+                    $propsSQL_DB = @{
+                        SubName = $azSub.Name
+                        ServerName = $AzureSQLServer.Name
+                        ResourceGroupName = $AzureSQLServer.ResourceGroupName
+                        DatabaseName = $AzureSQLDB.DatabaseName
+                    }
+                    $SQLDBObject = New-Object -TypeName PSObject -Property $propsSQL_DB
+                    $AzureSQLDB += $SQLDBObject
+                }
+            }
         } 
     }
 }
