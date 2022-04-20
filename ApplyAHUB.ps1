@@ -5,7 +5,6 @@ $AzureVM = @()
 $AzureSQLVM = @()
 $AzureSQLDB = @()
 $AzureSQLMI = @()
-$AzureSQLDB_Edition = @('Hyperscale','GeneralPurpose','BusinessCritical')
 
 #Iterate through all subscriptions
 foreach ($azSub in $azSubs)
@@ -71,12 +70,12 @@ foreach ($azSub in $azSubs)
         }
     }
 
-    #Iterate through all SQL Servers----------------------------------------------------
+    #Iterate through all SQL Databases ----------------------------------------------------
     $AzureSQLServers = Get-AzResource  | Where-Object ResourceType -EQ Microsoft.SQL/servers
     foreach ($AzureSQLServer in $AzureSQLServers)
     {
         #Iterate through all SQL Server DBs that are not masters and have vCore-based purchasing model
-        $AzureSQLServerDatabases = Get-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName | Where-Object DatabaseName -NE "master" | ?{$_.Edition -match $AzureSQLDB_Edition}
+        $AzureSQLServerDatabases = Get-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName | Where-Object DatabaseName -NE "master" 
         foreach ($AzureSQLDatabase in $AzureSQLServerDatabases)
         {
             if ($AzureSQLDatabase.LicenseType -cne "BasePrice")
@@ -98,6 +97,14 @@ foreach ($azSub in $azSubs)
             }
         }
     }
+
+
+    #Iterate through all SQL Managed Instances ----------------------------------------------------
+    # $AzureSQLManagedInstances = Get-AzResource  | Where-Object ResourceType -EQ Microsoft.SQL/managedInstances
+    # foreach ($AzureSQLMI in $AzureSQLManagedInstances)
+    # {
+        
+    # }
 }
 $AzureVM | Export-Csv -Path "$($home)\AzVM-WindowsServer-Licensing-Change.csv" -NoTypeInformation -force
 $AzureSQLVM | Export-Csv -Path "$($home)\AzVM-SQLVM_Std_Ent-Licensing-Change.csv" -NoTypeInformation -force
