@@ -4,7 +4,7 @@ $dot = "....................."
 $AzureVM = @()
 $AzureSQLVM = @()
 $AzureSQLDB = @()
-$AzureSQLMI = @()
+$AzureSQLMIList = @()
 
 #Iterate through all subscriptions
 foreach ($azSub in $azSubs)
@@ -24,8 +24,10 @@ foreach ($azSub in $azSubs)
                 $string = "[UPDATE] Updating VM License with AHUB (Windows Server): "
                 $string + $azVM.Name + $dot
                 $azVM.LicenseType = "Windows_Server"
+                
                 #Apply AHUB
                 Update-AzVM -ResourceGroupName $azVM.ResourceGroupName -VM $azVM
+                
                 #Adding details for CSV file
                 $props = @{
                     SubName = $azSub.Name
@@ -50,7 +52,10 @@ foreach ($azSub in $azSubs)
             {
                 $string = "[UPDATE] Updating VM License with AHUB (Microsoft SQL): "
                 $string + $azSqlVM.Name + $dot
+                
+                #Updating License Type to AHUB
                 Update-AzSqlVM -ResourceGroupName $azSqlVM.ResourceGroupName -Name $azSqlVM.Name -LicenseType "AHUB"
+                
                 # Adding details for CSV file
                 $propsSQL = @{
                     SubName = $azSub.Name
@@ -83,6 +88,7 @@ foreach ($azSub in $azSubs)
                 $string = "[UPDATE] Updating Azure SQL Database with AHUB: "
                 $string + $AzureSQLDatabase.DatabaseName + $dot
             
+                #Updating License Type to BasePrice (AHB Applied)
                 Set-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName -DatabaseName $AzureSQLDatabase.DatabaseName -LicenseType "BasePrice"
 
                 # Adding details for CSV file
@@ -99,15 +105,37 @@ foreach ($azSub in $azSubs)
     }
 
 
-    #Iterate through all SQL Managed Instances ----------------------------------------------------
-    # $AzureSQLManagedInstances = Get-AzResource  | Where-Object ResourceType -EQ Microsoft.SQL/managedInstances
-    # foreach ($AzureSQLMI in $AzureSQLManagedInstances)
-    # {
-        
-    # }
+    # Iterate through all SQL Managed Instances ----------------------------------------------------
+    $AzureSQLManagedInstances = Get-AzResource  | Where-Object ResourceType -EQ Microsoft.SQL/managedInstances
+    foreach ($AzureSQLMI in $AzureSQLManagedInstances)
+    {
+        if ($AzureSQLMI.LicenseType -cne "BasePrice")
+        {
+            $string = "[UPDATE] Updating Azure SQL MI with AHUB: "
+            $string + $AzureSQLMI.Name + $dot
+            
+            #Updating License Type to BasePrice (AHB Applied)
+            Set-AzSqlInstance -Name $AzureSQLMI.Name -ResourceGroupName $AzureSQLMI.ResourceGroupName -LicenseType BasePrice 
+
+            # Adding details for CSV file
+            $propsSQL_MI = @{
+                SubName = $azSub.Name
+                ServerName = $AzureSQLMI.Name
+                ResourceGroupName = $AzureSQLMI.ResourceGroupName
+            }
+            $SQLMIObject = New-Object -TypeName PSObject -Property $propsSQL_MI
+            $AzureSQLMIList += $SQLMIObject
+        }
+    }
 }
 $AzureVM | Export-Csv -Path "$($home)\AzVM-WindowsServer-Licensing-Change.csv" -NoTypeInformation -force
 $AzureSQLVM | Export-Csv -Path "$($home)\AzVM-SQLVM_Std_Ent-Licensing-Change.csv" -NoTypeInformation -force
-$AzureSQLVM | Export-Csv -Path "$($home)\AzSQL-DB-Licensing-Change.csv" -NoTypeInformation -force
-echo "Check AzVM-Windows_Server-Licensing-Change.csv for results on Windows Server license type changes......"
-echo "Check AzVM-SQL_Std_Ent-Licensing-Change.csv for results on SQL Standard/Enterprise license type changes......"
+$AzureSQLDB | Export-Csv -Path "$($home)\AzSQL-DB-Licensing-Change.csv" -NoTypeInformation -force
+$AzureSQLMIList | Export-Csv -Path "$($home)\AzSQLMI-Licensing-Change.csv" -NoTypeInformation -force
+echo "------------AHUB has been applied------------"
+echo "Changes have been logged as CSV files to the following files:"
+echo "AzVM-WindowsServer-Licensing-Change.csv --> Windows Server license type changes......"
+echo "AzVM-SQLVM_Std_Ent-Licensing-Change.csv --> SQL Standard/Enterprise license type changes......"
+echo "AzSQL-DB-Licensing-Change.csv --> SQL Databases license type changes......"
+echo "AzSQLMI-Licensing-Change.csv --> SQL Databases license type changes......"
+
