@@ -115,7 +115,7 @@ foreach ($azSub in $azSubs)
             $string + $AzureSQLMI.Name + $dot
             
             #Updating License Type to BasePrice (AHB Applied)
-            Set-AzSqlInstance -Name $AzureSQLMI.Name -ResourceGroupName $AzureSQLMI.ResourceGroupName -LicenseType BasePrice 
+            Set-AzSqlInstance -Name $AzureSQLMI.Name -ResourceGroupName $AzureSQLMI.ResourceGroupName -LicenseType BasePrice -Force
 
             # Adding details for CSV file
             $propsSQL_MI = @{
