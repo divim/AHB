@@ -5,7 +5,7 @@ $AzureVM = @()
 $AzureSQLVM = @()
 $AzureSQLDB = @()
 $AzureSQLMIList = @()
-
+Set-Item Env:\SuppressAzurePowerShellBreakingChangeWarnings "true"
 #Iterate through all subscriptions
 foreach ($azSub in $azSubs)
 {
@@ -83,7 +83,7 @@ foreach ($azSub in $azSubs)
         $AzureSQLServerDatabases = Get-AzSqlDatabase -ServerName $AzureSQLServer.Name -ResourceGroupName $AzureSQLServer.ResourceGroupName | Where-Object DatabaseName -NE "master" 
         foreach ($AzureSQLDatabase in $AzureSQLServerDatabases)
         {
-            if ($AzureSQLDatabase.LicenseType -cne "BasePrice")
+            if ($AzureSQLDatabase.LicenseType -EQ "LicenseIncluded")
             {
                 $string = "[UPDATE] Updating Azure SQL Database with AHUB: "
                 $string + $AzureSQLDatabase.DatabaseName + $dot
